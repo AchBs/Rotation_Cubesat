@@ -1,5 +1,7 @@
 import cv2
+import math 
 import numpy as np
+import time
 
 # Open the default camera
 cap = cv2.VideoCapture(0)
@@ -20,49 +22,97 @@ while True:
 
     # Define the lower and upper bounds of the red color in HSV
     lower_red = np.array([0, 100, 100])
-    upper_red = np.array([10, 255, 255])
+    upper_red = np.array([4, 255, 255])
+    # Define the lower and upper bounds of the Blue color in HSV
+    lower_blue = np.array([38, 86, 0])
+    upper_blue = np.array([121, 255, 255])
 
     # Create a mask for the red color using the lower and upper bounds
-    mask = cv2.inRange(hsv, lower_red, upper_red)
+    mask_red = cv2.inRange(hsv, lower_red, upper_red)
+    mask_Blue = cv2.inRange(hsv, lower_blue, upper_blue)
 
-    # Find contours in the mask
-    contours, hierarchy = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    #centre (moment)
+    moments1 = cv2.moments(mask_red, 0)
+    moments2 = cv2.moments(mask_Blue, 0)
 
-    # Loop through the contours to find the square
-    max_area = 0
-    best_cnt = None
-    for cnt in contours:
-        area = cv2.contourArea(cnt)
-        if area > max_area:
-            approx = cv2.approxPolyDP(cnt, 0.01*cv2.arcLength(cnt, True), True)
-            if len(approx) == 4:
-                max_area = area
-                best_cnt = cnt
 
-    # Draw the square contour on the frame
-    cv2.drawContours(frame, [best_cnt], 0, (0, 255, 0), 3)
 
-    # Calculate the centroid of the square
-    M = cv2.moments(best_cnt)
-    cx = int(M['m10']/M['m00'])
-    cy = int(M['m01']/M['m00'])
 
-    # Find the vertex of the square closest to the centroid
-    pts = approx.reshape((-1, 2))
-    distances = np.sqrt(np.sum((pts - [cx, cy])**2, axis=1))
-    min_index = np.argmin(distances)
+    area1=moments1['m00']
+    area2=moments2['m00']
 
-    # Draw a line from the centroid to the vertex
-    cv2.line(frame, (cx, cy), tuple(pts[min_index]), (255, 0, 0), 2)
+    #initialize x and y
+    x1,y1,x2,y2=(1,2,3,4)
+    coord_list=[x1,y1,x2,y2]
+    for x in coord_list:
+        x=0
 
-    # Calculate the angle between the line and the x-axis
-    angle = np.arctan2(pts[min_index][1] - cy, pts[min_index][0] - cx) * 180 / np.pi
+    if area1 > 200000:
+            # x and y coordinates of the center of the object is found by dividing the 1,0 and 0,1 moments by the area
+            x2 = int(moments1['m10'] / area1)
+            y2 = int(moments1['m01'] / area1)
 
-    # Print the angle
-    print('Angle:', angle)
+    cv2.circle(frame,(x1,y1),2,(0,255,0),20)
 
-    # Display the frame
-    cv2.imshow('frame', frame)
+    
+    if area2 > 200000:
+            # x and y coordinates of the center of the object is found by dividing the 1,0 and 0,1 moments by the area
+            x1 = int(moments2['m10'] / area2)
+            y1 = int(moments2['m01'] / area2)
+
+    cv2.circle(frame,(x2,y2),2,(0,255,0),20)
+
+    
+    cv2.line(frame,(x1,y1),(x2,y2),(0,255,0),4,cv2.LINE_AA)
+
+    x1=float(x1)
+    x2=float(x2)
+    y1=float(y1)
+    y2=float(y2)
+
+    cv2.line(frame, (int(x1), int(y1)), (frame.shape[1], int(y1)), (100, 100, 100, 100), 4, cv2.LINE_AA)
+
+    if y2>y1:
+        if x2>x1:  
+
+            angle = int(math.atan((y2-y1)/(x2-x1))*180/math.pi)
+
+        elif x2<x1:
+             
+             angle= 180 +(int(math.atan((y1-y2)/(x1-x2))*180/math.pi))
+        else: 
+             
+             angle = 90
+    else :
+        if x2<x1:  
+            angle =180+(int(math.atan((y1-y2)/(x1-x2))*180/math.pi))
+        elif x2>x1:
+             
+             angle= 360 -(int(math.atan((y1-y2)/(x2-x1))*180/math.pi))
+        else: 
+             angle = 270
+         
+
+        
+    
+
+    
+
+    font = cv2.FONT_HERSHEY_SIMPLEX
+
+    # Define font properties
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    fontScale = 1
+    thickness = 2
+
+    # Put text on the frame
+    cv2.putText(frame, str(angle), (int(x1)+50, int((y2+y1)/2)), font, fontScale, (0,0,255), thickness)
+
+       
+    cv2.imshow('frame',frame)
+    cv2.imshow('mask red', mask_red)
+    cv2.imshow('mask Blue', mask_Blue)
+        
 
     # Wait for a key press and check if the user wants to quit
     if cv2.waitKey(1) & 0xFF == ord('q'):
